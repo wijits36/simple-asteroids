@@ -1,4 +1,5 @@
 import sys
+from pathlib import Path
 
 import pygame
 
@@ -9,6 +10,19 @@ from logger import log_event, log_state
 from player import Player
 from shot import Shot
 
+HIGHSCORE_FILE = Path(__file__).parent / "highscore.txt"
+
+
+def load_high_score():
+    try:
+        return int(HIGHSCORE_FILE.read_text().strip())
+    except (FileNotFoundError, ValueError):
+        return 0
+
+
+def save_high_score(score):
+    HIGHSCORE_FILE.write_text(str(score))
+
 
 def main():
     print(f"Starting Asteroids with pygame version: {pygame.version.ver}")
@@ -18,6 +32,7 @@ def main():
     # Game init
     pygame.init()
     screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+    font = pygame.font.Font(None, 36)
     clock = pygame.time.Clock()
     dt = 0
 
@@ -26,6 +41,9 @@ def main():
     drawable = pygame.sprite.Group()
     asteroids = pygame.sprite.Group()
     shots = pygame.sprite.Group()
+
+    score = 0
+    high_score = load_high_score()
 
     # Player init
     Player.containers = (updatable, drawable)
@@ -47,6 +65,7 @@ def main():
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
+                save_high_score(high_score)
                 print("Quitting game")
                 return
 
@@ -59,14 +78,23 @@ def main():
                     log_event("asteroid_shot")
                     asteroid.split()
                     shot.kill()
+                    score += asteroid.score_value
+                    if score > high_score:
+                        high_score = score
 
             if asteroid.collides_with(player):
                 log_event("player_hit")
-                print("Game over!")
+                save_high_score(high_score)
+                print(f"Game over! Score: {score}  High score: {high_score}")
                 sys.exit()
 
         for sprite in drawable:
             sprite.draw(screen)
+
+        score_surf = font.render(f"Score: {score}", True, "white")
+        high_score_surf = font.render(f"Best: {high_score}", True, "grey")
+        screen.blit(score_surf, (10, 10))
+        screen.blit(high_score_surf, (10, 40))
 
         pygame.display.flip()
         dt = clock.tick(60) / 1000.0
